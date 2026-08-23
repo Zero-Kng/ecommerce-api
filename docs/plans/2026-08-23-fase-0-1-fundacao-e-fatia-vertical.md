@@ -90,7 +90,7 @@ Entregável: repositório Git publicado no GitHub, dependências instaladas, Ruf
 
 ---
 
-- [ ] **Passo 1: Instalar o uv**
+- [x] **Passo 1: Instalar o uv**
 
 No PowerShell:
 
@@ -106,7 +106,7 @@ uv --version
 
 Esperado: uma versão é impressa. Se o comando não for encontrado, o terminal não foi reaberto.
 
-- [ ] **Passo 2: Inicializar o repositório Git**
+- [x] **Passo 2: Inicializar o repositório Git**
 
 Na raiz do projeto (`E:\Dev\Projetos\Projeto Full-Stack 1`):
 
@@ -116,7 +116,7 @@ git init -b main
 
 Esperado: `Initialized empty Git repository`.
 
-- [ ] **Passo 3: Criar o `.gitignore`**
+- [x] **Passo 3: Criar o `.gitignore`**
 
 Crie `.gitignore` com este conteúdo:
 
@@ -145,7 +145,7 @@ htmlcov/
 
 A linha `.env` é a mais importante do arquivo. Ela é o que impede sua senha de banco de virar pública.
 
-- [ ] **Passo 4: Criar o `pyproject.toml`**
+- [x] **Passo 4: Criar o `pyproject.toml`**
 
 Crie `pyproject.toml` com este conteúdo:
 
@@ -204,7 +204,7 @@ O que cada bloco faz:
 - `tool.ruff.lint.flake8-bugbear.extend-immutable-calls` — a regra `B008` proíbe chamar funções em valores padrão de parâmetro, porque o resultado seria calculado uma vez só e compartilhado entre chamadas. É uma boa regra, mas o `Depends()` do FastAPI é justamente uma exceção legítima: ele é um marcador, não uma chamada de verdade. Esta lista informa ao Ruff quais chamadas ignorar. Sem ela, o `ruff check` reprovaria todo endpoint que use injeção de dependência.
 - `tool.pytest.pythonpath = ["."]` — permite que os testes façam `from app.main import app`.
 
-- [ ] **Passo 5: Criar os arquivos de pacote**
+- [x] **Passo 5: Criar os arquivos de pacote**
 
 ```bash
 mkdir -p app/core app/db tests
@@ -220,7 +220,7 @@ New-Item -ItemType File app/__init__.py, app/core/__init__.py, app/db/__init__.p
 
 Arquivos `__init__.py` vazios são o que transforma uma pasta num pacote Python importável.
 
-- [ ] **Passo 6: Instalar as dependências**
+- [x] **Passo 6: Instalar as dependências**
 
 ```bash
 uv sync
@@ -228,7 +228,7 @@ uv sync
 
 Esperado: o uv cria `.venv/`, resolve as versões, instala tudo e grava `uv.lock`.
 
-- [ ] **Passo 7: Verificar que o Ruff funciona**
+- [x] **Passo 7: Verificar que o Ruff funciona**
 
 ```bash
 uv run ruff check .
@@ -236,7 +236,7 @@ uv run ruff check .
 
 Esperado: `All checks passed!`
 
-- [ ] **Passo 8: Commit**
+- [x] **Passo 8: Commit**
 
 ```bash
 git add .gitignore pyproject.toml uv.lock app tests docs
@@ -245,7 +245,7 @@ git commit -m "chore: estrutura inicial do projeto com uv e ruff"
 
 O `docs` entra aqui: o SDD e os planos de implementação fazem parte do repositório. O README da Tarefa 7 vai linkar para `docs/sdd.md`, e um link quebrado na primeira página é pior que documentação nenhuma. Documentação de decisões versionada junto do código também é, por si só, um sinal de maturidade que poucos portfólios júnior têm.
 
-- [ ] **Passo 9: Publicar no GitHub**
+- [x] **Passo 9: Publicar no GitHub**
 
 Crie um repositório **público** chamado `ecommerce-api` em https://github.com/new. Não marque nenhuma opção de inicialização (sem README, sem .gitignore, sem licença) — o repositório local já tem conteúdo.
 
@@ -275,7 +275,7 @@ Entregável: servidor rodando na máquina, respondendo `/health`, com teste auto
 
 ---
 
-- [ ] **Passo 1: Escrever a fixture do cliente de teste**
+- [x] **Passo 1: Escrever a fixture do cliente de teste**
 
 Crie `tests/conftest.py`:
 
@@ -294,7 +294,7 @@ def client() -> TestClient:
 
 Uma *fixture* é um pedaço de preparo reaproveitável. Qualquer teste que declare um parâmetro chamado `client` recebe este objeto pronto.
 
-- [ ] **Passo 2: Escrever o teste que falha**
+- [x] **Passo 2: Escrever o teste que falha**
 
 Crie `tests/test_health.py`:
 
@@ -309,7 +309,7 @@ def test_health_responde_ok(client: TestClient) -> None:
     assert response.json() == {"status": "ok"}
 ```
 
-- [ ] **Passo 3: Rodar o teste e confirmar que falha**
+- [x] **Passo 3: Rodar o teste e confirmar que falha**
 
 ```bash
 uv run pytest tests/test_health.py -v
@@ -319,7 +319,7 @@ Esperado: **FALHA** com `ModuleNotFoundError: No module named 'app.main'`.
 
 Este passo não é burocracia. Um teste que nunca foi visto falhando pode estar passando por engano — por exemplo, por não estar testando nada. Ver a falha é o que prova que o teste tem poder de detectar o problema.
 
-- [ ] **Passo 4: Escrever a implementação mínima**
+- [x] **Passo 4: Escrever a implementação mínima**
 
 Crie `app/main.py`:
 
@@ -339,7 +339,7 @@ def health() -> dict[str, str]:
     return {"status": "ok"}
 ```
 
-- [ ] **Passo 5: Rodar o teste e confirmar que passa**
+- [x] **Passo 5: Rodar o teste e confirmar que passa**
 
 ```bash
 uv run pytest tests/test_health.py -v
@@ -347,7 +347,7 @@ uv run pytest tests/test_health.py -v
 
 Esperado: **PASSA** — `1 passed`.
 
-- [ ] **Passo 6: Ver a aplicação rodando de verdade**
+- [x] **Passo 6: Ver a aplicação rodando de verdade**
 
 ```bash
 uv run uvicorn app.main:app --reload
@@ -357,7 +357,7 @@ Abra http://localhost:8000/docs no navegador. A documentação Swagger está lá
 
 Encerre com `Ctrl+C`.
 
-- [ ] **Passo 7: Verificar lint e formatação**
+- [x] **Passo 7: Verificar lint e formatação**
 
 ```bash
 uv run ruff format .
@@ -366,7 +366,7 @@ uv run ruff check .
 
 Esperado: arquivos formatados e `All checks passed!`
 
-- [ ] **Passo 8: Commit**
+- [x] **Passo 8: Commit**
 
 ```bash
 git add app/main.py tests/conftest.py tests/test_health.py
