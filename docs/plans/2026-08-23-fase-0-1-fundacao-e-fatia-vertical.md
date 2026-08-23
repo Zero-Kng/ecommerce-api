@@ -6,7 +6,7 @@
 
 **Arquitetura:** Aplicação FastAPI síncrona em container, conversando com PostgreSQL em container irmão, orquestrados por Docker Compose. A configuração vem de variáveis de ambiente via Pydantic Settings. Nenhuma tabela de negócio é criada nesta fase — o objetivo é exclusivamente provar que a pilha inteira se comunica ponta a ponta antes de qualquer lógica de domínio existir.
 
-**Stack:** Python 3.12, FastAPI, Uvicorn, SQLAlchemy 2.0 (síncrono), psycopg 3, Pydantic Settings, PostgreSQL 16, pytest, httpx, Ruff, Docker Compose, GitHub Actions, uv.
+**Stack:** Python 3.14, FastAPI, Uvicorn, SQLAlchemy 2.0 (síncrono), psycopg 3, Pydantic Settings, PostgreSQL 16, pytest, httpx, Ruff, Docker Compose, GitHub Actions, uv.
 
 **Spec:** [`docs/sdd.md`](../sdd.md) — Seções 3 (Arquitetura e stack) e 10 (Roadmap, Fases 0 e 1).
 
@@ -16,7 +16,7 @@
 
 Estas valem para **todas** as tarefas deste plano.
 
-- Python **3.12 ou superior**.
+- Python **3.14**, fixado com `.python-version`. A mesma versão localmente, no Docker e no CI.
 - SQLAlchemy **2.0+**, em modo **síncrono** (ver "Decisões novas" abaixo).
 - Driver PostgreSQL: **psycopg 3** (`psycopg[binary]`), nunca `psycopg2`.
 - PostgreSQL **16**.
@@ -49,6 +49,8 @@ Ao final deste plano, o repositório terá exatamente esta estrutura:
 | Arquivo | Responsabilidade |
 |---|---|
 | `.gitignore` | Impede que ambiente virtual, cache e segredos entrem no repositório |
+| `.gitattributes` | Normaliza fim de linha entre Windows e Linux |
+| `.python-version` | Fixa a versão do Python usada pelo uv |
 | `pyproject.toml` | Dependências, configuração do Ruff e do pytest |
 | `uv.lock` | Versões exatas resolvidas (gerado, mas commitado) |
 | `.env.example` | Modelo de configuração, com valores fictícios |
@@ -152,7 +154,7 @@ Crie `pyproject.toml` com este conteúdo:
 name = "ecommerce-api"
 version = "0.1.0"
 description = "API REST de e-commerce"
-requires-python = ">=3.12"
+requires-python = ">=3.14"
 dependencies = [
     "fastapi>=0.115",
     "uvicorn[standard]>=0.32",
@@ -174,7 +176,7 @@ package = false
 
 [tool.ruff]
 line-length = 100
-target-version = "py312"
+target-version = "py314"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
@@ -404,7 +406,7 @@ Esperado: ambas as versões são impressas.
 - [ ] **Passo 2: Criar o `Dockerfile`**
 
 ```dockerfile
-FROM python:3.12-slim
+FROM python:3.14-slim
 
 # Copia o binário do uv de uma imagem oficial, sem precisar instalar nada
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
