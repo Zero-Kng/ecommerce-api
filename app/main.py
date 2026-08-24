@@ -1,6 +1,9 @@
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
+from sqlalchemy import text
+from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
+from app.db.session import get_db
 
 settings = get_settings()
 
@@ -12,6 +15,7 @@ app = FastAPI(
 
 
 @app.get("/health", tags=["sistema"])
-def health() -> dict[str, str]:
-    """Confirma que a aplicação está de pé."""
-    return {"status": "ok"}
+def health(db: Session = Depends(get_db)) -> dict[str, str]:
+    """Confirma que a aplicação está de pé e alcança o banco de dados."""
+    db.execute(text("SELECT 1"))
+    return {"status": "ok", "database": "ok"}
