@@ -698,7 +698,7 @@ Entregável: a fatia vertical fechada. O `/health` executa uma consulta real no 
 - Produz:
   - `app.db.session.engine` — engine do SQLAlchemy
   - `app.db.session.SessionLocal` — fábrica de sessões
-  - `app.db.session.get_db() -> Generator[Session, None, None]` — dependência do FastAPI, usada por **todos** os endpoints das fases seguintes
+  - `app.db.session.get_db() -> Generator[Session]` — dependência do FastAPI, usada por **todos** os endpoints das fases seguintes
 
 ---
 
@@ -719,7 +719,7 @@ Consequência prática: **o banco precisa estar de pé para os testes rodarem.**
 
 ---
 
-- [ ] **Passo 1: Subir apenas o banco**
+- [x] **Passo 1: Subir apenas o banco**
 
 ```bash
 docker compose up -d db
@@ -733,7 +733,7 @@ docker compose ps
 
 Esperado: o serviço `db` aparece com status `healthy`.
 
-- [ ] **Passo 2: Escrever o teste que falha**
+- [x] **Passo 2: Escrever o teste que falha**
 
 Substitua o conteúdo de `tests/test_health.py`:
 
@@ -753,7 +753,7 @@ def test_health_confirma_conexao_com_o_banco(client: TestClient) -> None:
     assert response.json() == {"status": "ok", "database": "ok"}
 ```
 
-- [ ] **Passo 3: Rodar o teste e confirmar que falha**
+- [x] **Passo 3: Rodar o teste e confirmar que falha**
 
 ```bash
 uv run pytest tests/test_health.py -v
@@ -761,7 +761,7 @@ uv run pytest tests/test_health.py -v
 
 Esperado: `test_health_responde_ok` **PASSA**, e `test_health_confirma_conexao_com_o_banco` **FALHA**, porque a resposta atual é `{"status": "ok"}` — falta a chave `database`.
 
-- [ ] **Passo 4: Escrever a camada de sessão**
+- [x] **Passo 4: Escrever a camada de sessão**
 
 Crie `app/db/session.py`:
 
@@ -785,7 +785,7 @@ SessionLocal = sessionmaker(
 )
 
 
-def get_db() -> Generator[Session, None, None]:
+def get_db() -> Generator[Session]:
     """Abre uma sessão por requisição e garante o fechamento ao final."""
     db = SessionLocal()
     try:
@@ -800,7 +800,7 @@ Por que cada opção está aí:
 - **`try/finally`** — a sessão fecha mesmo que o endpoint levante exceção. Sem isso, o pool de conexões vaza e a aplicação trava sob carga.
 - **`expire_on_commit=False`** — depois de um commit, os objetos continuam legíveis sem uma nova ida ao banco. Isso evita erros confusos ao montar a resposta HTTP depois de gravar algo. Vai importar muito na Fase 5.
 
-- [ ] **Passo 5: Usar a sessão no `/health`**
+- [x] **Passo 5: Usar a sessão no `/health`**
 
 Substitua o conteúdo de `app/main.py`:
 
@@ -830,7 +830,7 @@ def health(db: Session = Depends(get_db)) -> dict[str, str]:
 
 `Depends(get_db)` é o sistema de injeção de dependência do FastAPI. Ele chama `get_db()`, entrega a sessão ao endpoint e executa o `finally` quando a resposta termina. Você nunca abre nem fecha sessão manualmente num endpoint.
 
-- [ ] **Passo 6: Rodar os testes e confirmar que passam**
+- [x] **Passo 6: Rodar os testes e confirmar que passam**
 
 ```bash
 uv run pytest -v
@@ -840,7 +840,7 @@ Esperado: **4 passed**.
 
 Se aparecer `connection refused`, o banco não está de pé — volte ao Passo 1.
 
-- [ ] **Passo 7: Confirmar a fatia vertical completa, de ponta a ponta**
+- [x] **Passo 7: Confirmar a fatia vertical completa, de ponta a ponta**
 
 ```bash
 docker compose up --build -d
@@ -866,7 +866,7 @@ Suba de novo:
 docker compose start db
 ```
 
-- [ ] **Passo 8: Lint e commit**
+- [x] **Passo 8: Lint e commit**
 
 ```bash
 uv run ruff format .
@@ -891,7 +891,7 @@ Entregável: a cada push, o GitHub roda lint, checagem de formatação e testes 
 
 ---
 
-- [ ] **Passo 1: Criar o arquivo de workflow**
+- [x] **Passo 1: Criar o arquivo de workflow**
 
 Crie `.github/workflows/ci.yml`:
 
@@ -950,7 +950,7 @@ jobs:
 
 Note a simetria com o desenvolvimento local: aqui também o PostgreSQL sobe como serviço com `healthcheck`, e os testes conectam em `localhost:5432`. **O mesmo comando funciona nos dois lugares** — se passa na sua máquina, passa no CI. Ambiente de CI que diverge do local é fonte inesgotável de frustração.
 
-- [ ] **Passo 2: Enviar e observar**
+- [x] **Passo 2: Enviar e observar**
 
 ```bash
 git add .github/workflows/ci.yml
@@ -962,7 +962,7 @@ Abra a aba **Actions** do seu repositório no GitHub. O workflow começa a rodar
 
 Esperado: todos os passos ficam verdes.
 
-- [ ] **Passo 3: Provar que o CI realmente pega erro**
+- [x] **Passo 3: Provar que o CI realmente pega erro**
 
 Um CI que nunca ficou vermelho não é prova de nada. Quebre de propósito.
 
@@ -1014,7 +1014,7 @@ Entregável: repositório apresentável a um recrutador, com instruções que fu
 
 ---
 
-- [ ] **Passo 1: Escrever o README**
+- [x] **Passo 1: Escrever o README**
 
 Crie `README.md`. Substitua `SEU-USUARIO` pelo seu usuário do GitHub.
 
@@ -1030,7 +1030,7 @@ autenticação e gestão de pedidos com controle de estoque transacional.
 
 ## Stack
 
-Python 3.12 · FastAPI · SQLAlchemy 2.0 · PostgreSQL 16 · Alembic · pytest · Docker · GitHub Actions
+Python 3.14 · FastAPI · SQLAlchemy 2.0 · PostgreSQL 16 · Alembic · pytest · Docker · GitHub Actions
 
 ## Como rodar
 
@@ -1087,7 +1087,7 @@ os testes conectam em `localhost:5432`. O mesmo comando roda nos dois lugares.
 - [ ] **Fase 6** — Acabamento e deploy
 ````
 
-- [ ] **Passo 2: Verificar as instruções do zero**
+- [x] **Passo 2: Verificar as instruções do zero**
 
 Não confie no README — teste-o. Numa pasta diferente:
 
@@ -1104,7 +1104,7 @@ Se algum passo do README não funcionar, corrija o README. Instruções quebrada
 
 Apague a pasta `teste-clone` depois.
 
-- [ ] **Passo 3: Commit final da fase**
+- [x] **Passo 3: Commit final da fase**
 
 ```bash
 git add README.md
@@ -1112,18 +1112,18 @@ git commit -m "docs: README com instrucoes de execucao e decisoes tecnicas"
 git push
 ```
 
-- [ ] **Passo 4: Conferir a definição de pronto**
+- [x] **Passo 4: Conferir a definição de pronto**
 
 Marque cada item apenas depois de verificar:
 
-- [ ] `docker compose up` sobe API e banco com um comando só
-- [ ] `curl http://localhost:8000/health` devolve `{"status":"ok","database":"ok"}`
-- [ ] http://localhost:8000/docs mostra a documentação interativa
-- [ ] `uv run pytest` passa com 4 testes
-- [ ] `uv run ruff check .` passa sem avisos
-- [ ] O badge do CI está verde no topo do README
-- [ ] O arquivo `.env` **não** aparece no GitHub
-- [ ] O README foi verificado com um clone limpo
+- [x] `docker compose up` sobe API e banco com um comando só
+- [x] `curl http://localhost:8000/health` devolve `{"status":"ok","database":"ok"}`
+- [x] http://localhost:8000/docs mostra a documentação interativa
+- [x] `uv run pytest` passa com 4 testes
+- [x] `uv run ruff check .` passa sem avisos
+- [x] O badge do CI está verde no topo do README
+- [x] O arquivo `.env` **não** aparece no GitHub
+- [x] O README foi verificado com um clone limpo
 
 ---
 
