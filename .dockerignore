@@ -1,0 +1,24 @@
+# Ambiente virtual do host. A imagem cria o seu próprio, com pacotes
+# compilados para Linux — copiar este aqui seria inútil e quebraria.
+.venv/
+
+# Histórico e metadados do Git
+.git/
+.gitattributes
+.github/
+
+# Caches de ferramentas
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Segredos nunca entram numa imagem: imagem vai para registry e servidor.
+.env
+
+# Não participam do build
+docs/
+tests/
+README.md
