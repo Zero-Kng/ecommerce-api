@@ -9,7 +9,9 @@ autenticação e gestão de pedidos com controle de estoque transacional.
 
 ## Stack
 
-Python 3.14 · FastAPI · SQLAlchemy 2.0 · PostgreSQL 16 · Alembic · pytest · Docker · GitHub Actions
+Python 3.14 · FastAPI · SQLAlchemy 2.0 · PostgreSQL 16 · pytest · Docker · GitHub Actions
+
+Alembic entra na Fase 2, junto com as primeiras migrations.
 
 ## Como rodar
 
