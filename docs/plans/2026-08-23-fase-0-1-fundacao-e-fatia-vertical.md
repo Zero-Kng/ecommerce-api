@@ -21,7 +21,7 @@ Estas valem para **todas** as tarefas deste plano.
 - Driver PostgreSQL: **psycopg 3** (`psycopg[binary]`), nunca `psycopg2`.
 - PostgreSQL **16**.
 - Gerenciador de dependências: **uv**. Todo comando Python roda via `uv run`.
-- Ruff com `line-length = 100`, alvo `py312`.
+- Ruff com `line-length = 100`, alvo `py314`.
 - Nenhum segredo em código. Toda configuração vem de variável de ambiente.
 - `.env` **nunca** é commitado. `.env.example` **sempre** é.
 - Nenhum model de negócio, migration ou tabela nesta fase. Isso é a Fase 2.
@@ -392,7 +392,7 @@ Entregável: `docker compose up` sobe API e banco juntos; a API responde na port
 
 ---
 
-- [ ] **Passo 1: Instalar o Docker Desktop**
+- [x] **Passo 1: Instalar o Docker Desktop**
 
 Baixe em https://www.docker.com/products/docker-desktop e instale. Abra o Docker Desktop e espere o ícone indicar que está rodando.
 
@@ -403,7 +403,7 @@ docker compose version
 
 Esperado: ambas as versões são impressas.
 
-- [ ] **Passo 2: Criar o `Dockerfile`**
+- [x] **Passo 2: Criar o `Dockerfile`**
 
 ```dockerfile
 FROM python:3.14-slim
@@ -433,7 +433,7 @@ Dois detalhes que valem entrevista:
 - **Ordem das camadas.** Dependências mudam raramente; código muda o tempo todo. Copiando as dependências primeiro, um build após uma alteração de código reaproveita o cache e leva segundos em vez de minutos.
 - **`--no-dev`.** A imagem de produção não carrega pytest nem Ruff. Imagem menor, superfície de ataque menor.
 
-- [ ] **Passo 3: Criar o `docker-compose.yml`**
+- [x] **Passo 3: Criar o `docker-compose.yml`**
 
 ```yaml
 services:
@@ -477,7 +477,7 @@ O que cada parte resolve:
 - **`volumes: ./app:/code/app`** — espelha seu código dentro do container. Junto com `--reload`, você edita um arquivo no Windows e o servidor recarrega sozinho.
 - **`ports: "5432:5432"`** — publica o banco na sua máquina, para que os testes rodem no host.
 
-- [ ] **Passo 4: Criar `.env.example` e `.env`**
+- [x] **Passo 4: Criar `.env.example` e `.env`**
 
 `.env.example` (este vai para o Git):
 
@@ -498,7 +498,7 @@ No PowerShell:
 Copy-Item .env.example .env
 ```
 
-- [ ] **Passo 5: Subir tudo**
+- [x] **Passo 5: Subir tudo**
 
 ```bash
 docker compose up --build
@@ -506,7 +506,7 @@ docker compose up --build
 
 Esperado: o build da imagem acontece, o `db` fica saudável, e o `api` imprime `Application startup complete`.
 
-- [ ] **Passo 6: Confirmar que a API responde de dentro do container**
+- [x] **Passo 6: Confirmar que a API responde de dentro do container**
 
 Em outro terminal:
 
@@ -518,7 +518,7 @@ Esperado: `{"status":"ok"}`
 
 Abra também http://localhost:8000/docs. Se aparecer, a API está servindo de dentro do Docker.
 
-- [ ] **Passo 7: Confirmar que o banco está de pé**
+- [x] **Passo 7: Confirmar que o banco está de pé**
 
 ```bash
 docker compose exec db psql -U postgres -d ecommerce -c "SELECT version();"
@@ -532,7 +532,7 @@ Encerre com `Ctrl+C` e depois:
 docker compose down
 ```
 
-- [ ] **Passo 8: Commit**
+- [x] **Passo 8: Commit**
 
 ```bash
 git add Dockerfile docker-compose.yml .env.example
@@ -560,7 +560,7 @@ Entregável: a aplicação lê sua configuração do ambiente, com validação e
 
 ---
 
-- [ ] **Passo 1: Escrever o teste que falha**
+- [x] **Passo 1: Escrever o teste que falha**
 
 Crie `tests/test_config.py`:
 
@@ -593,7 +593,7 @@ def test_settings_falha_quando_database_url_esta_ausente(
 
 O segundo teste é o que importa de verdade: ele prova que a aplicação **quebra alto e cedo** quando falta configuração, em vez de subir e falhar de forma confusa na primeira requisição.
 
-- [ ] **Passo 2: Rodar o teste e confirmar que falha**
+- [x] **Passo 2: Rodar o teste e confirmar que falha**
 
 ```bash
 uv run pytest tests/test_config.py -v
@@ -601,7 +601,7 @@ uv run pytest tests/test_config.py -v
 
 Esperado: **FALHA** com `ModuleNotFoundError: No module named 'app.core.config'`.
 
-- [ ] **Passo 3: Escrever a implementação**
+- [x] **Passo 3: Escrever a implementação**
 
 Crie `app/core/config.py`:
 
@@ -632,7 +632,7 @@ Três coisas acontecendo aqui:
 - `env_file=".env"` faz a leitura do arquivo local. Variáveis de ambiente reais têm prioridade sobre ele — é por isso que o Docker Compose consegue sobrescrever com `db:5432`.
 - `@lru_cache` garante que o ambiente seja lido uma vez só; as chamadas seguintes devolvem o mesmo objeto.
 
-- [ ] **Passo 4: Rodar os testes e confirmar que passam**
+- [x] **Passo 4: Rodar os testes e confirmar que passam**
 
 ```bash
 uv run pytest tests/test_config.py -v
@@ -640,7 +640,7 @@ uv run pytest tests/test_config.py -v
 
 Esperado: **PASSA** — `2 passed`.
 
-- [ ] **Passo 5: Usar a configuração no `main.py`**
+- [x] **Passo 5: Usar a configuração no `main.py`**
 
 Substitua o topo de `app/main.py`:
 
@@ -664,7 +664,7 @@ def health() -> dict[str, str]:
     return {"status": "ok"}
 ```
 
-- [ ] **Passo 6: Rodar a suíte inteira**
+- [x] **Passo 6: Rodar a suíte inteira**
 
 ```bash
 uv run pytest -v
@@ -672,7 +672,7 @@ uv run pytest -v
 
 Esperado: **3 passed**. Se `test_health` falhar com erro de `DATABASE_URL`, é porque o `.env` não existe — refaça o Passo 4 da Tarefa 3.
 
-- [ ] **Passo 7: Lint e commit**
+- [x] **Passo 7: Lint e commit**
 
 ```bash
 uv run ruff format .
