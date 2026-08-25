@@ -113,7 +113,7 @@ Alembic gerar a migration.
 
 ---
 
-- [ ] **Passo 1: A classe base declarativa**
+- [x] **Passo 1: A classe base declarativa**
 
 Crie `app/db/base.py`:
 
@@ -128,7 +128,7 @@ class Base(DeclarativeBase):
 Toda tabela herda dela. O `Base.metadata` acumula a descrição de todas as tabelas
 registradas, e é isso que o Alembic vai comparar com o banco real para gerar migrations.
 
-- [ ] **Passo 2: O model de categoria**
+- [x] **Passo 2: O model de categoria**
 
 Crie `app/models/category.py`:
 
@@ -155,7 +155,7 @@ class Category(Base):
         DateTime(timezone=True), server_default=func.now()
     )
 
-    products: Mapped[list["Product"]] = relationship(back_populates="category")
+    products: Mapped[list[Product]] = relationship(back_populates="category")
 ```
 
 Três coisas para entender:
@@ -171,10 +171,14 @@ Padrão em Python só valeria para escritas feitas pela sua aplicação.
 
 **`TYPE_CHECKING`.** `Category` precisa mencionar `Product` e `Product` precisa
 mencionar `Category`. Importar os dois de verdade criaria ciclo. O bloco
-`if TYPE_CHECKING` só é lido por ferramentas de tipo, nunca em tempo de execução, e o
-`"Product"` entre aspas é resolvido pelo SQLAlchemy pelo nome da classe.
+`if TYPE_CHECKING` só é lido por ferramentas de tipo, nunca em tempo de execução.
 
-- [ ] **Passo 3: O model de produto**
+No Python 3.14 as anotações são avaliadas de forma diferida (PEP 649), então o nome
+`Product` pode aparecer **sem aspas**: o SQLAlchemy lê a anotação sem executá-la e
+resolve o nome pelo registro de classes dele. Em versões anteriores seria necessário
+escrever `Mapped[list["Product"]]`, e o Ruff sinaliza isso com a regra `UP037`.
+
+- [x] **Passo 3: O model de produto**
 
 Crie `app/models/product.py`:
 
@@ -222,7 +226,7 @@ class Product(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
 
-    category: Mapped["Category"] = relationship(back_populates="products")
+    category: Mapped[Category] = relationship(back_populates="products")
 ```
 
 **Material de entrevista — os dois `CheckConstraint`.** A regra R2 diz que estoque nunca
@@ -236,7 +240,7 @@ contornar por descuido.
 exatamente; `0.1 + 0.2` não dá `0.3`. Em dinheiro isso vira centavo errado acumulado.
 `Numeric` é decimal exato e chega ao Python como `Decimal`.
 
-- [ ] **Passo 4: Registrar os models**
+- [x] **Passo 4: Registrar os models**
 
 Crie `app/models/__init__.py`:
 
@@ -250,7 +254,7 @@ __all__ = ["Category", "Product"]
 Isso garante que importar `app.models` registra as duas tabelas no `Base.metadata`. Sem
 esse arquivo, o Alembic geraria uma migration vazia — ele só enxerga o que foi importado.
 
-- [ ] **Passo 5: Verificar que importa**
+- [x] **Passo 5: Verificar que importa**
 
 ```bash
 uv run python -c "from app.models import Category, Product; from app.db.base import Base; print(sorted(Base.metadata.tables))"
@@ -288,7 +292,7 @@ Entregável: o esquema do banco versionado em arquivo, aplicável com um comando
 
 ---
 
-- [ ] **Passo 1: Instalar o Alembic**
+- [x] **Passo 1: Instalar o Alembic**
 
 ```bash
 uv add alembic
