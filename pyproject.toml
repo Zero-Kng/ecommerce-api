@@ -9,6 +9,7 @@ dependencies = [
     "sqlalchemy>=2.0",
     "psycopg[binary]>=3.2",
     "pydantic-settings>=2.6",
+    "alembic>=1.19.1",
 ]
 
 [dependency-groups]
@@ -25,10 +26,13 @@ package = false
 [tool.ruff]
 line-length = 100
 target-version = "py314"
-exclude = ["docs"]
+exclude = ["docs", "alembic/versions"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.isort]
+known-third-party = ["alembic"]
 
 [tool.ruff.lint.flake8-bugbear]
 extend-immutable-calls = [
