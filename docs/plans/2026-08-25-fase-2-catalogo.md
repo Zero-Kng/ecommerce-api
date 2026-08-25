@@ -857,16 +857,19 @@ Entregável: CRUD de categorias funcionando, com R9 garantida.
 
 ---
 
-- [ ] **Passo 1: Escrever os testes do service primeiro**
+- [x] **Passo 1: Escrever os testes do service primeiro**
 
 Crie `tests/test_services/test_category_service.py`:
 
 ```python
+from decimal import Decimal
+
 import pytest
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import CategoryInUseError, DuplicateResourceError, NotFoundError
-from app.schemas.category import CategoriaCriar
+from app.models import Product
+from app.schemas.category import CategoriaAtualizar, CategoriaCriar
 from app.services import category as servico
 
 
@@ -889,10 +892,6 @@ def test_buscar_inexistente_levanta_not_found(db_session: Session) -> None:
 
 
 def test_remover_categoria_com_produto_e_bloqueado(db_session: Session) -> None:
-    from decimal import Decimal
-
-    from app.models import Product
-
     categoria = servico.criar(db_session, CategoriaCriar(name="Teclados"))
     db_session.add(
         Product(
@@ -907,11 +906,46 @@ def test_remover_categoria_com_produto_e_bloqueado(db_session: Session) -> None:
 
     with pytest.raises(CategoryInUseError):
         servico.remover(db_session, categoria.id)
+
+
+def test_remover_categoria_sem_produtos_funciona(db_session: Session) -> None:
+    categoria = servico.criar(db_session, CategoriaCriar(name="Categoria Vazia"))
+
+    servico.remover(db_session, categoria.id)
+
+    with pytest.raises(NotFoundError):
+        servico.buscar_por_id(db_session, categoria.id)
+
+
+def test_listar_devolve_em_ordem_alfabetica(db_session: Session) -> None:
+    servico.criar(db_session, CategoriaCriar(name="Zebra"))
+    servico.criar(db_session, CategoriaCriar(name="Abacaxi"))
+
+    assert [c.name for c in servico.listar(db_session)] == ["Abacaxi", "Zebra"]
+
+
+def test_atualizar_regenera_o_slug(db_session: Session) -> None:
+    categoria = servico.criar(db_session, CategoriaCriar(name="Fones"))
+
+    atualizada = servico.atualizar(
+        db_session, categoria.id, CategoriaAtualizar(name="Fones de Ouvido")
+    )
+
+    assert atualizada.name == "Fones de Ouvido"
+    assert atualizada.slug == "fones-de-ouvido"
+
+
+def test_atualizar_mantendo_o_proprio_nome_nao_acusa_duplicata(db_session: Session) -> None:
+    categoria = servico.criar(db_session, CategoriaCriar(name="Mouses"))
+
+    atualizada = servico.atualizar(db_session, categoria.id, CategoriaAtualizar(name="Mouses"))
+
+    assert atualizada.slug == "mouses"
 ```
 
 O último teste é a regra **R9** do SDD. Ele é o mais importante dos quatro.
 
-- [ ] **Passo 2: Rodar e confirmar a falha**
+- [x] **Passo 2: Rodar e confirmar a falha**
 
 ```bash
 uv run pytest tests/test_services/ -v
@@ -919,7 +953,7 @@ uv run pytest tests/test_services/ -v
 
 Esperado: **falha** com `ModuleNotFoundError` em `app.schemas.category`.
 
-- [ ] **Passo 3: O gerador de slug**
+- [x] **Passo 3: O gerador de slug**
 
 Crie `app/core/slug.py`:
 
@@ -937,7 +971,7 @@ def gerar_slug(texto: str) -> str:
 `NFKD` separa a letra do acento (`á` vira `a` + acento), e o `encode("ascii", "ignore")`
 descarta o que não couber em ASCII, deixando a letra limpa.
 
-- [ ] **Passo 4: Os schemas**
+- [x] **Passo 4: Os schemas**
 
 Crie `app/schemas/category.py`:
 
@@ -975,7 +1009,7 @@ dicionário.
 
 Crie também `app/schemas/__init__.py` e `app/services/__init__.py` vazios.
 
-- [ ] **Passo 5: O service**
+- [x] **Passo 5: O service**
 
 Crie `app/services/category.py`:
 
@@ -1055,19 +1089,47 @@ a dependência `get_db`. Isso é o que vai permitir, na Fase 5, que um service c
 várias operações numa transação só e reverta tudo se alguma falhar. Service que dá
 `commit` sozinho impede atomicidade.
 
+**Mas o `get_db` da Fase 1 não confirma nada.** Ele foi escrito quando o projeto só lia
+do banco, e faz apenas `yield` e `close()` — e `close()` desfaz a transação aberta. Com
+os services usando só `flush`, **tudo que a API grava é descartado no fim da
+requisição**. Corrija `app/db/session.py`:
+
+```python
+def get_db() -> Generator[Session]:
+    """Abre uma sessão por requisição, confirma ao final e desfaz em caso de erro."""
+    db = SessionLocal()
+    try:
+        yield db
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        db.close()
+```
+
+Agora a requisição HTTP é a fronteira da transação: confirma se deu tudo certo, desfaz se
+qualquer exceção subiu — inclusive as de domínio. Um `POST` que falha na metade não deixa
+registro parcial.
+
+**A suíte de testes não consegue pegar esse erro.** A fixture `client` substitui o
+`get_db` por uma sessão de teste que nunca confirma, e as asserções acontecem dentro da
+mesma transação — então tudo parece funcionar. Só uma requisição real contra a aplicação
+real revela o problema, e é por isso que o Passo 1 da Tarefa 7 existe.
+
 **A contagem usa `count`, não carrega os produtos.** `select(func.count())` devolve um
 número vindo do banco. Carregar a lista inteira só para perguntar "tem algum?" seria
 gastar memória à toa — e numa categoria com dez mil produtos, seria desastroso.
 
-- [ ] **Passo 6: Rodar os testes do service**
+- [x] **Passo 6: Rodar os testes do service**
 
 ```bash
 uv run pytest tests/test_services/ -v
 ```
 
-Esperado: **4 passed**.
+Esperado: **8 passed**.
 
-- [ ] **Passo 7: A dependência de sessão**
+- [x] **Passo 7: A dependência de sessão**
 
 Crie `app/api/deps.py`:
 
@@ -1080,7 +1142,7 @@ __all__ = ["get_db"]
 Um ponto único de onde as rotas importam dependências. Quando a Fase 4 acrescentar
 `get_current_user` e `require_admin`, elas moram aqui e as rotas não mudam de import.
 
-- [ ] **Passo 8: As rotas**
+- [x] **Passo 8: As rotas**
 
 Crie `app/api/routes/categories.py`:
 
@@ -1132,7 +1194,7 @@ internet, então o risco hoje é zero — mas não esqueça que a dívida existe
 
 Crie `app/api/routes/__init__.py` vazio.
 
-- [ ] **Passo 9: Registrar o router**
+- [x] **Passo 9: Registrar o router**
 
 Em `app/main.py`, acrescente:
 
@@ -1144,7 +1206,7 @@ app.include_router(categories.router, prefix="/api/v1")
 
 O `/health` continua na raiz, sem prefixo, como o SDD define na seção 6.
 
-- [ ] **Passo 10: Os testes de API**
+- [x] **Passo 10: Os testes de API**
 
 Crie `tests/test_api/test_categories.py`:
 
@@ -1185,13 +1247,13 @@ Os dois do meio provam que o handler da Tarefa 4 funciona: a exceção de domín
 status HTTP e o `code` chegou ao cliente. O último prova que a validação do Pydantic
 devolve 422 sozinha, sem código seu.
 
-- [ ] **Passo 11: Rodar tudo**
+- [x] **Passo 11: Rodar tudo**
 
 ```bash
 uv run pytest -v
 ```
 
-Esperado: **17 passed**.
+Esperado: **21 passed**.
 
 ```bash
 uv run ruff format .
@@ -1225,7 +1287,7 @@ Entregável: CRUD de produtos, com soft delete e validação de categoria.
 
 ---
 
-- [ ] **Passo 1: Os testes do service**
+- [x] **Passo 1: Os testes do service**
 
 Crie `tests/test_services/test_product_service.py`:
 
@@ -1236,8 +1298,9 @@ import pytest
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import DuplicateResourceError, NotFoundError
+from app.models import Product
 from app.schemas.category import CategoriaCriar
-from app.schemas.product import ProdutoCriar
+from app.schemas.product import ProdutoAtualizar, ProdutoCriar
 from app.services import category as servico_categoria
 from app.services import product as servico
 
@@ -1277,13 +1340,12 @@ def test_criar_com_categoria_inexistente_levanta_not_found(db_session: Session) 
 
 
 def test_sku_duplicado_e_recusado(db_session: Session) -> None:
-    categoria_id = _categoria(db_session)
     dados = ProdutoCriar(
         sku="NB-003",
         name="Notebook Slim",
         price=Decimal("2899.00"),
         stock_quantity=2,
-        category_id=categoria_id,
+        category_id=_categoria(db_session),
     )
     servico.criar(db_session, dados)
 
@@ -1306,11 +1368,10 @@ def test_remover_faz_soft_delete(db_session: Session) -> None:
     servico.remover(db_session, criado.id)
 
     assert criado.is_active is False
-    assert db_session.get(type(criado), criado.id) is not None
+    assert db_session.get(Product, criado.id) is not None
 
 
 def test_listar_ignora_produtos_inativos(db_session: Session) -> None:
-    categoria_id = _categoria(db_session)
     criado = servico.criar(
         db_session,
         ProdutoCriar(
@@ -1318,24 +1379,72 @@ def test_listar_ignora_produtos_inativos(db_session: Session) -> None:
             name="Notebook Antigo",
             price=Decimal("999.00"),
             stock_quantity=1,
-            category_id=categoria_id,
+            category_id=_categoria(db_session),
         ),
     )
     servico.remover(db_session, criado.id)
 
     assert servico.listar(db_session) == []
+
+
+def test_buscar_produto_inexistente_levanta_not_found(db_session: Session) -> None:
+    with pytest.raises(NotFoundError):
+        servico.buscar_por_id(db_session, 9999)
+
+
+def test_atualizar_para_categoria_inexistente_levanta_not_found(db_session: Session) -> None:
+    criado = servico.criar(
+        db_session,
+        ProdutoCriar(
+            sku="NB-006",
+            name="Notebook Alvo",
+            price=Decimal("1500.00"),
+            stock_quantity=1,
+            category_id=_categoria(db_session),
+        ),
+    )
+
+    with pytest.raises(NotFoundError):
+        servico.atualizar(db_session, criado.id, ProdutoAtualizar(category_id=9999))
+
+
+def test_atualizar_sku_para_um_ja_existente_e_recusado(db_session: Session) -> None:
+    categoria_id = _categoria(db_session)
+    servico.criar(
+        db_session,
+        ProdutoCriar(
+            sku="NB-007",
+            name="Notebook Um",
+            price=Decimal("1000.00"),
+            stock_quantity=1,
+            category_id=categoria_id,
+        ),
+    )
+    segundo = servico.criar(
+        db_session,
+        ProdutoCriar(
+            sku="NB-008",
+            name="Notebook Dois",
+            price=Decimal("2000.00"),
+            stock_quantity=1,
+            category_id=categoria_id,
+        ),
+    )
+
+    with pytest.raises(DuplicateResourceError):
+        servico.atualizar(db_session, segundo.id, ProdutoAtualizar(sku="NB-007"))
 ```
 
 Os dois últimos são a decisão número 3 do SDD: produto não é apagado, é desativado. O
 teste prova as duas metades — a linha continua no banco, e some da listagem pública.
 
-- [ ] **Passo 2: Confirmar a falha**
+- [x] **Passo 2: Confirmar a falha**
 
 ```bash
 uv run pytest tests/test_services/test_product_service.py -v
 ```
 
-- [ ] **Passo 3: Os schemas**
+- [x] **Passo 3: Os schemas**
 
 Crie `app/schemas/product.py`:
 
@@ -1385,7 +1494,7 @@ novo, não é redundância inútil: a validação do Pydantic devolve **422 com 
 clara** antes de tocar o banco, enquanto o `CHECK` devolveria um erro cru de driver. Um é
 experiência de quem usa a API, o outro é integridade do dado.
 
-- [ ] **Passo 4: O service**
+- [x] **Passo 4: O service**
 
 Crie `app/services/product.py`:
 
@@ -1462,15 +1571,15 @@ o Pydantic preencheria os ausentes com `None`. Com `exclude_unset`, só entra no
 dicionário o que o cliente realmente mandou. É a diferença entre `PATCH` (atualização
 parcial) e `PUT` (substituição completa), e confundir os dois é um erro comum.
 
-- [ ] **Passo 5: Rodar os testes do service**
+- [x] **Passo 5: Rodar os testes do service**
 
 ```bash
 uv run pytest tests/test_services/ -v
 ```
 
-Esperado: **9 passed**.
+Esperado: **16 passed**.
 
-- [ ] **Passo 6: As rotas**
+- [x] **Passo 6: As rotas**
 
 Crie `app/api/routes/products.py`:
 
@@ -1526,7 +1635,7 @@ from app.api.routes import products
 app.include_router(products.router, prefix="/api/v1")
 ```
 
-- [ ] **Passo 7: Os testes de API**
+- [x] **Passo 7: Os testes de API**
 
 Crie `tests/test_api/test_products.py`:
 
@@ -1624,13 +1733,13 @@ def test_delete_some_da_listagem_mas_detalhe_continua(client: TestClient) -> Non
 O `test_patch_altera_so_o_campo_enviado` é o que prova o `exclude_unset`. Sem ele, `name`
 e `stock_quantity` voltariam nulos e o teste falharia.
 
-- [ ] **Passo 8: Rodar tudo**
+- [x] **Passo 8: Rodar tudo**
 
 ```bash
 uv run pytest -v
 ```
 
-Esperado: **27 passed**.
+Esperado: **34 passed**.
 
 ```bash
 uv run ruff format .
@@ -1657,11 +1766,11 @@ git commit -m "feat: CRUD de produtos com soft delete"
 Entregável: catálogo visível no Swagger, README atualizado, CI verde.
 
 **Arquivos:**
-- Modificar: `README.md`
+- Modificar: `README.md`, `app/db/session.py`
 
 ---
 
-- [ ] **Passo 1: Conferir o Swagger com os olhos**
+- [x] **Passo 1: Conferir o Swagger com os olhos**
 
 ```bash
 docker compose up --build -d
@@ -1679,7 +1788,25 @@ schemas de entrada e saída, e as descrições vindas das docstrings.
 Crie uma categoria e um produto pela própria interface do Swagger. É a demonstração que
 você vai fazer numa entrevista, então vale ensaiar uma vez.
 
-- [ ] **Passo 2: Atualizar o README**
+**Este passo não é enfeite — é o único que valida a persistência.** Faça na ordem:
+
+1. `POST /api/v1/categories` com `{"name": "Eletrônicos de Áudio"}` — confira que o slug
+   volta como `eletronicos-de-audio`.
+2. `POST /api/v1/products` usando o `id` que voltou. Se responder
+   `Categoria N não encontrada`, a categoria **não foi persistida** e o `get_db` está sem
+   `commit` (ver Passo 5 da Tarefa 5).
+3. `DELETE` na categoria — deve devolver **409** com `code: CATEGORY_IN_USE`. É a regra
+   R9 provada de ponta a ponta.
+4. `POST` do mesmo produto de novo — deve devolver **409** e **não** criar um segundo
+   registro. É o rollback da transação funcionando.
+
+Confirme no banco que sobrou exatamente uma categoria e um produto:
+
+```bash
+docker compose exec db psql -U postgres -d ecommerce -c "SELECT count(*) FROM products;"
+```
+
+- [x] **Passo 2: Atualizar o README**
 
 Devolva o Alembic à linha de stack e apague a frase que dizia que ele entraria na Fase 2.
 
@@ -1694,7 +1821,7 @@ produto desativado em vez de apagado, e services sem conhecimento de HTTP.
 
 No **Roadmap**, marque a Fase 2.
 
-- [ ] **Passo 3: Rodar os portões antes de enviar**
+- [x] **Passo 3: Rodar os portões antes de enviar**
 
 Os mesmos comandos que o CI vai rodar:
 
@@ -1727,21 +1854,22 @@ git push
 Acompanhe a aba Actions. Se ficar vermelho, o suspeito número um é a variável
 `DATABASE_URL_TEST` faltando no workflow — confira o Passo 6 da Tarefa 3.
 
-- [ ] **Passo 5: Definição de pronto**
+- [x] **Passo 5: Definição de pronto**
 
 Marque cada item só depois de verificar:
 
-- [ ] `alembic upgrade head` cria as duas tabelas num banco vazio
-- [ ] `alembic downgrade -1` desfaz sem erro
-- [ ] `POST /api/v1/categories` com `{"name": "Eletrônicos de Áudio"}` devolve slug `eletronicos-de-audio`
-- [ ] Categoria com produto vinculado devolve 409 com `code: CATEGORY_IN_USE`
-- [ ] `DELETE /api/v1/products/{id}` some da listagem mas responde 200 no detalhe
-- [ ] `PATCH` de um campo só não apaga os outros
-- [ ] Preço negativo devolve 422
-- [ ] `uv run pytest` passa com 27 testes
-- [ ] Cobertura de `app/services/` acima de 80%
+- [x] `alembic upgrade head` cria as duas tabelas num banco vazio
+- [x] `alembic downgrade -1` desfaz sem erro
+- [x] `POST /api/v1/categories` com `{"name": "Eletrônicos de Áudio"}` devolve slug `eletronicos-de-audio`
+- [x] Categoria com produto vinculado devolve 409 com `code: CATEGORY_IN_USE`
+- [x] `DELETE /api/v1/products/{id}` some da listagem mas responde 200 no detalhe
+- [x] `PATCH` de um campo só não apaga os outros
+- [x] Preço negativo devolve 422
+- [x] `uv run pytest` passa com 34 testes
+- [x] Cobertura de `app/services/` acima de 80%
+- [x] Nenhuma função de service sem teste (`--cov=app.services --cov-report=term-missing`)
 - [ ] CI verde no GitHub
-- [ ] Swagger mostra os grupos de categorias e produtos
+- [x] Swagger mostra os grupos de categorias e produtos
 
 ---
 
