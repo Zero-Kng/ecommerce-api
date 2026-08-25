@@ -79,6 +79,7 @@ tests/test_services/__init__.py
 tests/test_services/test_category_service.py
 tests/test_services/test_product_service.py
 tests/test_api/__init__.py
+tests/test_api/test_errors.py
 tests/test_api/test_categories.py
 tests/test_api/test_products.py
 ```
@@ -655,7 +656,7 @@ Em `.github/workflows/ci.yml`, no bloco `env` do job, acrescente:
 
 Sem isso o CI fica vermelho no primeiro push desta fase, porque `Settings` exige o campo.
 
-- [ ] **Passo 7: Commit**
+- [x] **Passo 7: Commit**
 
 ```bash
 git add app/core/config.py tests/ .env.example docker-compose.yml .github/workflows/ci.yml
@@ -672,12 +673,13 @@ git commit -m "test: banco de teste isolado com migrations e transacao revertida
 Entregável: os services podem recusar operações sem saber que existe HTTP.
 
 **Arquivos:**
-- Criar: `app/core/exceptions.py`, `app/api/errors.py`, `app/api/__init__.py`
+- Criar: `app/core/exceptions.py`, `app/api/errors.py`, `app/api/__init__.py`,
+  `tests/test_api/test_errors.py`
 - Modificar: `app/main.py`
 
 ---
 
-- [ ] **Passo 1: A hierarquia de exceções**
+- [x] **Passo 1: A hierarquia de exceções**
 
 Crie `app/core/exceptions.py`:
 
@@ -717,7 +719,7 @@ O `code` é o campo estável que o SDD define na seção 7 — legível por máq
 front-end pode usar para decidir o que mostrar. O `detail` é a frase para humano e pode
 mudar sem quebrar ninguém.
 
-- [ ] **Passo 2: O tradutor**
+- [x] **Passo 2: O tradutor**
 
 Crie `app/api/errors.py`:
 
@@ -738,16 +740,18 @@ STATUS_POR_EXCECAO: list[tuple[type[DomainError], int]] = [
     (PermissionDeniedError, 403),
 ]
 
+STATUS_PADRAO = 400
+
 
 def registrar_handlers(app: FastAPI) -> None:
+    """Registra a tradução de exceções de domínio para respostas HTTP."""
+
     @app.exception_handler(DomainError)
     async def tratar_erro_de_dominio(_: Request, erro: DomainError) -> JSONResponse:
-        status = 400
-        for tipo, codigo in STATUS_POR_EXCECAO:
-            if isinstance(erro, tipo):
-                status = codigo
-                break
-
+        status = next(
+            (codigo for tipo, codigo in STATUS_POR_EXCECAO if isinstance(erro, tipo)),
+            STATUS_PADRAO,
+        )
         return JSONResponse(
             status_code=status,
             content={"detail": erro.detail, "code": erro.code},
@@ -758,7 +762,7 @@ A ordem da lista importa: `CategoryInUseError` herda de `ConflictError`, então 
 `ConflictError` e vira 409 sem precisar de entrada própria. Subclasses novas ganham o
 status certo de graça — desde que herdem do lugar certo.
 
-- [ ] **Passo 3: Registrar no `main.py`**
+- [x] **Passo 3: Registrar no `main.py`**
 
 Em `app/main.py`, importe e chame logo depois de criar o `app`:
 
@@ -768,11 +772,61 @@ from app.api.errors import registrar_handlers
 registrar_handlers(app)
 ```
 
-- [ ] **Passo 4: Verificar**
+- [x] **Passo 4: Provar que a tradução funciona**
+
+Rodar a suíte existente não serve aqui: nenhum teste atual levanta exceção de domínio, e
+o handler passaria despercebido mesmo quebrado. Crie `tests/test_api/test_errors.py`:
+
+```python
+import pytest
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+
+from app.api.errors import registrar_handlers
+from app.core.exceptions import (
+    CategoryInUseError,
+    DomainError,
+    DuplicateResourceError,
+    NotFoundError,
+    PermissionDeniedError,
+)
+
+CASOS = [
+    (NotFoundError, 404, "NOT_FOUND"),
+    (CategoryInUseError, 409, "CATEGORY_IN_USE"),
+    (DuplicateResourceError, 409, "DUPLICATE_RESOURCE"),
+    (PermissionDeniedError, 403, "PERMISSION_DENIED"),
+    (DomainError, 400, "DOMAIN_ERROR"),
+]
+
+
+@pytest.mark.parametrize(("excecao", "status", "code"), CASOS)
+def test_traduz_excecao_para_status_e_code(
+    excecao: type[DomainError], status: int, code: str
+) -> None:
+    aplicacao = FastAPI()
+    registrar_handlers(aplicacao)
+
+    @aplicacao.get("/estoura")
+    def estoura() -> None:
+        raise excecao("mensagem de teste")
+
+    resposta = TestClient(aplicacao).get("/estoura")
+
+    assert resposta.status_code == status
+    assert resposta.json() == {"detail": "mensagem de teste", "code": code}
+```
+
+O teste monta uma aplicação própria em vez de usar a real, porque o que está sob teste é
+`registrar_handlers`, não o catálogo. Os dois casos de `409` são os mais valiosos: eles
+provam que uma subclasse de `ConflictError` recebe o status certo **sem entrada própria
+na tabela**. E o caso do `DomainError` puro cobre o padrão de `400`.
 
 ```bash
 uv run pytest -q
 ```
+
+Esperado: **9 passed**.
 
 ```bash
 uv run ruff check .
@@ -1137,7 +1191,7 @@ devolve 422 sozinha, sem código seu.
 uv run pytest -v
 ```
 
-Esperado: **12 passed**.
+Esperado: **17 passed**.
 
 ```bash
 uv run ruff format .
@@ -1576,7 +1630,7 @@ e `stock_quantity` voltariam nulos e o teste falharia.
 uv run pytest -v
 ```
 
-Esperado: **22 passed**.
+Esperado: **27 passed**.
 
 ```bash
 uv run ruff format .
@@ -1684,7 +1738,7 @@ Marque cada item só depois de verificar:
 - [ ] `DELETE /api/v1/products/{id}` some da listagem mas responde 200 no detalhe
 - [ ] `PATCH` de um campo só não apaga os outros
 - [ ] Preço negativo devolve 422
-- [ ] `uv run pytest` passa com 22 testes
+- [ ] `uv run pytest` passa com 27 testes
 - [ ] Cobertura de `app/services/` acima de 80%
 - [ ] CI verde no GitHub
 - [ ] Swagger mostra os grupos de categorias e produtos
