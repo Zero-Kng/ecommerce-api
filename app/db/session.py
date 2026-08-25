@@ -18,9 +18,13 @@ SessionLocal = sessionmaker(
 
 
 def get_db() -> Generator[Session]:
-    """Abre uma sessão por requisição e garante o fechamento ao final."""
+    """Abre uma sessão por requisição, confirma ao final e desfaz em caso de erro."""
     db = SessionLocal()
     try:
         yield db
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
     finally:
         db.close()
