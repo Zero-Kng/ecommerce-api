@@ -3,6 +3,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.api.errors import registrar_handlers
+from app.api.routes import categories, products
 from app.core.config import get_settings
 from app.db.session import get_db
 
@@ -15,6 +16,9 @@ app = FastAPI(
 )
 
 registrar_handlers(app)
+
+app.include_router(categories.router, prefix="/api/v1")
+app.include_router(products.router, prefix="/api/v1")
 
 
 @app.get("/health", tags=["sistema"])
