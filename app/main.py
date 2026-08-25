@@ -2,6 +2,7 @@ from fastapi import Depends, FastAPI
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from app.api.errors import registrar_handlers
 from app.core.config import get_settings
 from app.db.session import get_db
 
@@ -12,6 +13,8 @@ app = FastAPI(
     version="0.1.0",
     description="API REST de e-commerce com catálogo, autenticação e pedidos.",
 )
+
+registrar_handlers(app)
 
 
 @app.get("/health", tags=["sistema"])
