@@ -27,6 +27,7 @@ jobs:
 
     env:
       DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/ecommerce
+      DATABASE_URL_TEST: postgresql+psycopg://postgres:postgres@localhost:5432/ecommerce_test
 
     steps:
       - name: Baixar o código

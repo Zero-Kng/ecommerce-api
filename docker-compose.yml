@@ -19,6 +19,7 @@ services:
     build: .
     environment:
       DATABASE_URL: postgresql+psycopg://postgres:postgres@db:5432/ecommerce
+      DATABASE_URL_TEST: postgresql+psycopg://postgres:postgres@db:5432/ecommerce_test
     ports:
       - "8000:8000"
     volumes:

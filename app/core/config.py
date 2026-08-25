@@ -10,6 +10,7 @@ class Settings(BaseSettings):
 
     project_name: str = "E-commerce API"
     database_url: str
+    database_url_test: str
 
 
 @lru_cache
