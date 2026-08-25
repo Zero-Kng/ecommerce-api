@@ -832,7 +832,7 @@ Esperado: **9 passed**.
 uv run ruff check .
 ```
 
-- [ ] **Passo 5: Commit**
+- [x] **Passo 5: Commit**
 
 ```bash
 git add app/core/exceptions.py app/api/ app/main.py
@@ -1263,7 +1263,7 @@ uv run ruff format .
 uv run ruff check .
 ```
 
-- [ ] **Passo 12: Commit**
+- [x] **Passo 12: Commit**
 
 ```bash
 git add app/ tests/
@@ -1749,7 +1749,7 @@ uv run ruff format .
 uv run ruff check .
 ```
 
-- [ ] **Passo 9: Commit**
+- [x] **Passo 9: Commit**
 
 ```bash
 git add app/ tests/
@@ -1837,7 +1837,7 @@ uv run ruff format --check .
 uv run pytest --cov=app --cov-report=term-missing
 ```
 
-- [ ] **Passo 4: Commit e observação do CI**
+- [x] **Passo 4: Commit e observação do CI**
 
 ```bash
 git add README.md
@@ -1868,7 +1868,7 @@ Marque cada item só depois de verificar:
 - [x] `uv run pytest` passa com 34 testes
 - [x] Cobertura de `app/services/` acima de 80%
 - [x] Nenhuma função de service sem teste (`--cov=app.services --cov-report=term-missing`)
-- [ ] CI verde no GitHub
+- [x] CI verde no GitHub
 - [x] Swagger mostra os grupos de categorias e produtos
 
 ---
