@@ -301,7 +301,7 @@ uv add alembic
 Repare que é dependência **principal**, não de desenvolvimento: em produção você precisa
 aplicar migrations no servidor.
 
-- [ ] **Passo 2: Inicializar**
+- [x] **Passo 2: Inicializar**
 
 ```bash
 uv run alembic init alembic
@@ -310,7 +310,7 @@ uv run alembic init alembic
 Isso cria `alembic.ini`, a pasta `alembic/` com `env.py`, `script.py.mako` e
 `versions/` vazia.
 
-- [ ] **Passo 3: Ligar o Alembic à sua configuração**
+- [x] **Passo 3: Ligar o Alembic à sua configuração**
 
 Abra `alembic/env.py`. Logo abaixo da linha `config = context.config`, acrescente:
 
@@ -337,7 +337,7 @@ Por que cada uma:
   utilizado, quando o efeito colateral do import é justamente o objetivo.
 - **`target_metadata`** é o que o Alembic compara com o banco para descobrir o que mudou.
 
-- [ ] **Passo 4: Tirar as migrations geradas do alcance do Ruff**
+- [x] **Passo 4: Tirar as migrations geradas do alcance do Ruff**
 
 Em `pyproject.toml`, na seção `[tool.ruff]`, troque a linha de exclusão por:
 
@@ -349,7 +349,19 @@ Os arquivos de migration são gerados por máquina e seguem o estilo do Alembic.
 com o formatador por causa deles não agrega nada. O `alembic/env.py`, que é código seu,
 continua sendo verificado.
 
-- [ ] **Passo 5: Gerar a migration**
+Acrescente também uma seção nova, logo abaixo de `[tool.ruff.lint]`:
+
+```toml
+[tool.ruff.lint.isort]
+known-third-party = ["alembic"]
+```
+
+Sem isso o Ruff trata `alembic` como código do próprio projeto, porque existe uma pasta
+`alembic/` na raiz, e agrupa `from alembic import context` junto dos imports de `app`. O
+código funciona igual — Python resolve o nome para o pacote instalado, não para a pasta
+— mas a leitura fica errada, e o mesmo problema voltaria no `conftest.py` da Tarefa 3.
+
+- [x] **Passo 5: Gerar a migration**
 
 O banco precisa estar de pé:
 
@@ -369,7 +381,7 @@ sem olhar o diff.
 Confira que ele cria as duas tabelas, os índices em `slug`, `sku` e `name`, a chave
 estrangeira `category_id` e os dois `CHECK`.
 
-- [ ] **Passo 6: Aplicar**
+- [x] **Passo 6: Aplicar**
 
 ```bash
 uv run alembic upgrade head
@@ -386,7 +398,7 @@ Esperado: `alembic_version`, `categories` e `products`.
 A tabela `alembic_version` guarda uma linha só, com o identificador da última migration
 aplicada. É assim que o Alembic sabe onde parou.
 
-- [ ] **Passo 7: Provar que dá para voltar**
+- [x] **Passo 7: Provar que dá para voltar**
 
 Uma migration que não sabe descer não é migration, é caminho sem volta.
 
