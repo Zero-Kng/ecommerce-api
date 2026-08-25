@@ -266,7 +266,7 @@ Esperado: `['categories', 'products']`.
 uv run ruff check .
 ```
 
-- [ ] **Passo 6: Commit**
+- [x] **Passo 6: Commit**
 
 ```bash
 git add app/db/base.py app/models/
@@ -319,7 +319,10 @@ from app.core.config import get_settings
 from app.db.base import Base
 import app.models  # noqa: F401
 
-config.set_main_option("sqlalchemy.url", get_settings().database_url)
+config.set_main_option(
+    "sqlalchemy.url",
+    config.attributes.get("sqlalchemy.url") or get_settings().database_url,
+)
 ```
 
 E troque a linha `target_metadata = None` por:
@@ -332,6 +335,10 @@ Por que cada uma:
 
 - **`set_main_option`** faz a URL vir da sua `Settings`, e não ficar escrita no
   `alembic.ini`. O arquivo `.ini` iria para o Git com a senha dentro.
+- **`config.attributes.get("sqlalchemy.url")`** deixa quem chama o Alembic por código
+  impor outra URL. Sem esse desvio, o `conftest.py` da Tarefa 3 pediria a migration no
+  banco de teste e o `env.py` a redirecionaria em silêncio para o banco de
+  desenvolvimento. Pela linha de comando o `attributes` vem vazio e a `Settings` prevalece.
 - **`import app.models`** força o registro das tabelas. O `# noqa: F401` é uma diretiva
   para o Ruff, não um comentário explicativo: sem ela o lint reclamaria de import não
   utilizado, quando o efeito colateral do import é justamente o objetivo.
@@ -416,7 +423,7 @@ Esperado: as tabelas somem, sobra só `alembic_version`. Suba de novo:
 uv run alembic upgrade head
 ```
 
-- [ ] **Passo 8: Commit**
+- [x] **Passo 8: Commit**
 
 ```bash
 git add pyproject.toml uv.lock alembic.ini alembic/
@@ -442,7 +449,7 @@ Entregável: cada teste roda contra um banco próprio e não deixa rastro.
 
 ---
 
-- [ ] **Passo 1: A variável do banco de teste**
+- [x] **Passo 1: A variável do banco de teste**
 
 Em `app/core/config.py`, acrescente um campo à classe `Settings`:
 
@@ -459,34 +466,68 @@ DATABASE_URL_TEST=postgresql+psycopg://postgres:postgres@localhost:5432/ecommerc
 Repare que é o mesmo servidor PostgreSQL, mesma porta, mesmas credenciais — muda só o
 nome do banco no fim da URL. Não é outro container.
 
-- [ ] **Passo 2: Rodar os testes e ver a falha esperada**
+- [x] **Passo 2: Fortalecer o teste de configuração**
 
 ```bash
 uv run pytest -q
 ```
 
-Esperado: **falha**, porque `Settings` agora exige um campo que o teste de configuração
-não fornece. Isso confirma que a obrigatoriedade funciona.
+Esperado: **4 passed**, sem falha nenhuma — e isso é uma má notícia disfarçada.
 
-Em `tests/test_config.py`, no primeiro teste, acrescente a segunda variável junto da
-primeira:
+`Settings` acabou de ganhar um campo obrigatório que o primeiro teste não fornece, e
+mesmo assim ele passou. O motivo: o teste roda na pasta do projeto, o `.env` já tem
+`DATABASE_URL_TEST`, e o Pydantic preencheu o campo a partir do arquivo. É a mesma
+armadilha que o `chdir(tmp_path)` do segundo teste existe para evitar — o primeiro nunca
+teve essa proteção.
+
+Consequência: aquele teste passaria **mesmo sem o `monkeypatch`**, lendo tudo do `.env`.
+Ele não estava testando o que o nome dele promete. Substitua o conteúdo de
+`tests/test_config.py`:
 
 ```python
-    monkeypatch.setenv("DATABASE_URL_TEST", "postgresql+psycopg://u:s@localhost:5432/t")
-```
+from pathlib import Path
 
-E no segundo teste, apague também a nova antes de esperar o erro:
+import pytest
+from pydantic import ValidationError
 
-```python
+from app.core.config import Settings
+
+URL_BANCO = "postgresql+psycopg://usuario:senha@localhost:5432/teste"
+URL_BANCO_TESTE = "postgresql+psycopg://usuario:senha@localhost:5432/teste_test"
+
+
+def test_settings_le_as_urls_do_ambiente(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("DATABASE_URL", URL_BANCO)
+    monkeypatch.setenv("DATABASE_URL_TEST", URL_BANCO_TESTE)
+
+    settings = Settings()
+
+    assert settings.database_url == URL_BANCO
+    assert settings.database_url_test == URL_BANCO_TESTE
+
+
+def test_settings_falha_quando_falta_variavel_obrigatoria(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.delenv("DATABASE_URL", raising=False)
     monkeypatch.delenv("DATABASE_URL_TEST", raising=False)
+    monkeypatch.chdir(tmp_path)
+
+    with pytest.raises(ValidationError):
+        Settings()
 ```
 
-- [ ] **Passo 3: Reescrever o `conftest.py`**
+Agora os dois testes saem da pasta do projeto antes de construir o `Settings`, e cada um
+mede exatamente o que o nome diz.
+
+- [x] **Passo 3: Reescrever o `conftest.py`**
 
 Substitua o conteúdo de `tests/conftest.py`:
 
 ```python
 from collections.abc import Generator
+from pathlib import Path
 
 import pytest
 from alembic import command
@@ -498,6 +539,8 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.db.session import get_db
 from app.main import app
+
+RAIZ_DO_PROJETO = Path(__file__).resolve().parent.parent
 
 
 @pytest.fixture(scope="session")
@@ -514,8 +557,9 @@ def test_engine() -> Generator[Engine]:
             conexao.execute(text(f'CREATE DATABASE "{banco}"'))
     administrador.dispose()
 
-    configuracao = Config("alembic.ini")
-    configuracao.set_main_option("sqlalchemy.url", url)
+    configuracao = Config(str(RAIZ_DO_PROJETO / "alembic.ini"))
+    configuracao.set_main_option("script_location", str(RAIZ_DO_PROJETO / "alembic"))
+    configuracao.attributes["sqlalchemy.url"] = url
     command.upgrade(configuracao, "head")
 
     engine = create_engine(url)
@@ -549,6 +593,12 @@ def client(db_session: Session) -> Generator[TestClient]:
 
 Três mecanismos aqui, e todos rendem entrevista:
 
+**A URL de teste chega ao Alembic por `attributes`, não por `set_main_option`.** O
+`env.py` só usa a `Settings` quando ninguém impôs uma URL, então essa linha é o que
+impede a migration de rodar no banco de desenvolvimento por engano. O `script_location`
+absoluto e o caminho absoluto do `alembic.ini` tiram a fixture da dependência do
+diretório atual.
+
 **Criar o banco exige `AUTOCOMMIT`.** `CREATE DATABASE` não roda dentro de transação no
 PostgreSQL. Por isso a conexão administrativa aponta para o banco `postgres` — que
 sempre existe — e usa `isolation_level="AUTOCOMMIT"`.
@@ -569,17 +619,17 @@ execução deixa de importar.
 que valeu a pena, na Fase 1, `get_db` ser uma função injetável em vez de uma variável de
 módulo.
 
-- [ ] **Passo 4: Pastas dos testes**
+- [x] **Passo 4: Pastas dos testes**
 
 Crie `tests/test_services/__init__.py` e `tests/test_api/__init__.py`, ambos vazios.
 
-- [ ] **Passo 5: Confirmar que a suíte antiga continua passando**
+- [x] **Passo 5: Confirmar que a suíte antiga continua passando**
 
 ```bash
 uv run pytest -v
 ```
 
-Esperado: **3 passed**. O `test_health` agora usa o banco de teste, e passa igual.
+Esperado: **4 passed**. O `test_health` agora usa o banco de teste, e passa igual.
 
 Confirme que o banco novo nasceu:
 
@@ -589,7 +639,7 @@ docker compose exec db psql -U postgres -c "\l"
 
 Esperado: `ecommerce` e `ecommerce_test` na lista.
 
-- [ ] **Passo 6: Ensinar o Compose e o CI sobre a variável nova**
+- [x] **Passo 6: Ensinar o Compose e o CI sobre a variável nova**
 
 Em `docker-compose.yml`, no serviço `api`, acrescente abaixo de `DATABASE_URL`:
 
@@ -1087,7 +1137,7 @@ devolve 422 sozinha, sem código seu.
 uv run pytest -v
 ```
 
-Esperado: **11 passed**.
+Esperado: **12 passed**.
 
 ```bash
 uv run ruff format .
@@ -1526,7 +1576,7 @@ e `stock_quantity` voltariam nulos e o teste falharia.
 uv run pytest -v
 ```
 
-Esperado: **19 passed**.
+Esperado: **22 passed**.
 
 ```bash
 uv run ruff format .
@@ -1634,7 +1684,7 @@ Marque cada item só depois de verificar:
 - [ ] `DELETE /api/v1/products/{id}` some da listagem mas responde 200 no detalhe
 - [ ] `PATCH` de um campo só não apaga os outros
 - [ ] Preço negativo devolve 422
-- [ ] `uv run pytest` passa com 19 testes
+- [ ] `uv run pytest` passa com 22 testes
 - [ ] Cobertura de `app/services/` acima de 80%
 - [ ] CI verde no GitHub
 - [ ] Swagger mostra os grupos de categorias e produtos
