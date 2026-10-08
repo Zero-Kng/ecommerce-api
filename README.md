@@ -5,7 +5,7 @@
 API REST de e-commerce construída com FastAPI e PostgreSQL, com catálogo de produtos,
 autenticação e gestão de pedidos com controle de estoque transacional.
 
-> **Status:** em desenvolvimento. Fase 2 de 6 concluída — infraestrutura, fatia vertical
+> **Status:** em desenvolvimento. Fase 2 de 6 concluída: infraestrutura, fatia vertical
 > e catálogo de categorias e produtos.
 
 ## Stack
@@ -97,14 +97,14 @@ os testes conectam em `localhost:5432`. O mesmo comando roda nos dois lugares.
 
 ## Documentação
 
-- [Documento de Design de Software (SDD)](docs/sdd.md) — arquitetura, modelo de dados e regras de negócio
+- [Documento de Design de Software (SDD)](docs/sdd.md): arquitetura, modelo de dados e regras de negócio
 - [Planos de implementação](docs/plans/)
 
 ## Roadmap
 
-- [x] **Fase 0–1** — Fundação e fatia vertical
-- [x] **Fase 2** — Catálogo: produtos, categorias e migrations
-- [ ] **Fase 3** — Busca, filtros e paginação
-- [ ] **Fase 4** — Usuários e autenticação JWT
-- [ ] **Fase 5** — Pedidos e controle transacional de estoque
-- [ ] **Fase 6** — Acabamento e deploy
+- [x] **Fase 0–1:** Fundação e fatia vertical
+- [x] **Fase 2:** Catálogo: produtos, categorias e migrations
+- [ ] **Fase 3:** Busca, filtros e paginação
+- [ ] **Fase 4:** Usuários e autenticação JWT
+- [ ] **Fase 5:** Pedidos e controle transacional de estoque
+- [ ] **Fase 6:** Acabamento e deploy
